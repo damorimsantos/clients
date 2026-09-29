@@ -32,24 +32,63 @@
 
   <form [formGroup]="form">
     <bit-section disableMargin>
-      <p bitTypography="h6" class="tw-mb-1">
-        {{ "peopleWhoCanView" | i18n }}
-      </p>
-      <p bitTypography="helper" class="tw-text-fg-body tw-font-normal tw-mb-4">
-        {{ "shareEmailVerificationDescription" | i18n }}
-      </p>
-      <bit-form-field>
-        <bit-label class="tw-font-normal">{{ "emails" | i18n }}</bit-label>
-        <textarea
-          bitInput
-          id="share-item-form_textarea_emails"
-          formControlName="emails"
-          rows="3"
-        ></textarea>
+      <bit-form-field [hidden]="authTypeOptions().length === 1">
+        <bit-label class="tw-font-normal">{{ "whoCanView" | i18n }}</bit-label>
+        <bit-select bitInput id="share-item-form_select_who-can-view" formControlName="authType">
+          @for (option of authTypeOptions(); track option.value) {
+            <bit-option [value]="option.value" [label]="option.label"></bit-option>
+          }
+        </bit-select>
       </bit-form-field>
-      <p bitTypography="helper" class="tw-text-fg-body tw-font-normal -tw-mt-2 tw-mb-3">
-        {{ "enterMultipleEmailsSeparatedByComma" | i18n }}
-      </p>
+      @switch (form.controls.authType.value) {
+        @case (AuthType.Email) {
+          <p bitTypography="helper" class="tw-text-fg-body tw-font-normal tw-mb-4">
+            {{ "shareEmailVerificationDescription" | i18n }}
+          </p>
+          <bit-form-field>
+            <bit-label class="tw-font-normal">{{ "emails" | i18n }}</bit-label>
+            <textarea
+              bitInput
+              id="share-item-form_textarea_emails"
+              formControlName="emails"
+              rows="3"
+            ></textarea>
+          </bit-form-field>
+          <p bitTypography="helper" class="tw-text-fg-body tw-font-normal -tw-mt-2 tw-mb-3">
+            {{ "enterMultipleEmailsSeparatedByComma" | i18n }}
+          </p>
+        }
+        @case (AuthType.Password) {
+          <bit-form-field>
+            <bit-label class="tw-font-normal">{{ "password" | i18n }}</bit-label>
+            <input
+              bitInput
+              type="password"
+              id="share-item-form_input_password"
+              formControlName="password"
+              autocomplete="new-password"
+            />
+            <button type="button" bitIconButton bitSuffix bitPasswordInputToggle></button>
+            <button
+              type="button"
+              bitIconButton="bwi-clone"
+              bitSuffix
+              id="share-item-form_button_copy-password"
+              [label]="'copyPassword' | i18n"
+              [disabled]="!form.controls.password.value"
+              (click)="copyPassword()"
+            ></button>
+          </bit-form-field>
+          <p bitTypography="helper" class="tw-text-fg-body tw-font-normal -tw-mt-2 tw-mb-3">
+            {{ "sharePasswordHint" | i18n }}
+          </p>
+        }
+        @default {
+          <p bitTypography="helper" class="tw-text-fg-body tw-font-normal tw-mb-4">
+            {{ "shareAnyoneWithLinkHint" | i18n }}
+          </p>
+        }
+      }
       <bit-form-field>
         <bit-label class="tw-font-normal">{{ "linkExpiresAfter" | i18n }}</bit-label>
         <bit-select bitInput id="share-item-form_select_expiry" formControlName="expiryHours">
@@ -66,17 +105,15 @@
       <p bitTypography="helper" class="tw-text-fg-body tw-font-normal -tw-mt-2 tw-mb-3">
         {{ "shareLinkExpiryHint" | i18n }}
       </p>
-      <bit-form-control disableMargin>
-        <input
-          type="checkbox"
-          bitCheckbox
-          id="share-item-form_checkbox_one-time"
-          formControlName="oneTimeShare"
-        />
-        <bit-label bitTypography="body1" class="tw-font-normal">{{
-          "oneTimeShare" | i18n
-        }}</bit-label>
-      </bit-form-control>
+      <bit-form-field disableMargin>
+        <bit-label class="tw-font-normal">{{ "shareMaxOpens" | i18n }}</bit-label>
+        <bit-select bitInput id="share-item-form_select_max-opens" formControlName="maxAccessCount">
+          @for (option of maxAccessOptions; track option.value) {
+            <bit-option [value]="option.value" [label]="option.label"></bit-option>
+          }
+        </bit-select>
+        <bit-hint>{{ "shareMaxOpensHint" | i18n }}</bit-hint>
+      </bit-form-field>
     </bit-section>
   </form>
 
@@ -95,11 +132,12 @@
           >
             <bit-icon name="bwi-share-link" class="tw-text-primary-600 tw-shrink-0" />
             <div class="tw-flex tw-flex-col tw-min-w-0 tw-flex-1">
-              <span bitTypography="body2" class="tw-truncate">{{
-                linkEmailDisplay(link.emails)
-              }}</span>
+              <span bitTypography="body2" class="tw-truncate">{{ linkAudience(link) }}</span>
               <span bitTypography="helper" class="tw-text-muted">
                 {{ "shareLinkExpires" | i18n }} {{ link.expiresAt | date: "mediumDate" }}
+                @if (linkOpens(link); as opens) {
+                  &middot; {{ opens }}
+                }
               </span>
             </div>
             <div class="tw-flex tw-items-center tw-shrink-0">

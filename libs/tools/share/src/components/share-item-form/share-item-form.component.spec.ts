@@ -10,6 +10,8 @@ import { I18nService } from "@bitwarden/common/platform/abstractions/i18n.servic
 import { PlatformUtilsService } from "@bitwarden/common/platform/abstractions/platform-utils.service";
 import { mockAccountInfoWith } from "@bitwarden/common/spec";
 import { SendDeletionDatePreset } from "@bitwarden/common/tools/models/send-deletion-date-preset";
+import { WhoCanAccessType } from "@bitwarden/common/tools/models/send-who-can-access-type";
+import { AuthType } from "@bitwarden/common/tools/send/types/auth-type";
 import { CipherId, UserId } from "@bitwarden/common/types/guid";
 import { FolderService } from "@bitwarden/common/vault/abstractions/folder/folder.service.abstraction";
 import { CipherType } from "@bitwarden/common/vault/enums";
@@ -46,6 +48,7 @@ describe("ShareItemFormComponent", () => {
     orgId: OrganizationId | null;
   } | null>;
   let allowedDomains$: BehaviorSubject<string[]>;
+  let whoCanAccess$: BehaviorSubject<WhoCanAccessType | null>;
   let organizations$: BehaviorSubject<
     {
       id: OrganizationId;
@@ -73,6 +76,7 @@ describe("ShareItemFormComponent", () => {
       orgId: OrganizationId | null;
     } | null>(null);
     allowedDomains$ = new BehaviorSubject<string[]>([]);
+    whoCanAccess$ = new BehaviorSubject<WhoCanAccessType | null>(null);
     organizations$ = new BehaviorSubject<
       {
         id: OrganizationId;
@@ -101,7 +105,10 @@ describe("ShareItemFormComponent", () => {
         { provide: ShareLinkService, useValue: shareLinkService },
         { provide: CollectionService, useValue: collectionService },
         { provide: FolderService, useValue: folderService },
-        { provide: SendPolicyService, useValue: { deletionDatePolicyInfo$, allowedDomains$ } },
+        {
+          provide: SendPolicyService,
+          useValue: { deletionDatePolicyInfo$, allowedDomains$, whoCanAccess$ },
+        },
         { provide: LogService, useValue: mock<LogService>() },
         { provide: OrganizationService, useValue: { organizations$: () => organizations$ } },
       ],
@@ -144,21 +151,24 @@ describe("ShareItemFormComponent", () => {
 
     await component.createAndCopyLink();
 
-    expect(shareLinkService.createShareLink).toHaveBeenCalledWith(
-      mockCipher,
-      ["a@test.com", "b@test.com", "c@test.com"],
-      168,
-      false,
-    );
+    expect(shareLinkService.createShareLink).toHaveBeenCalledWith(mockCipher, {
+      authType: AuthType.Email,
+      emails: ["a@test.com", "b@test.com", "c@test.com"],
+      password: undefined,
+      expiryHours: 168,
+      maxAccessCount: undefined,
+    });
   });
 
   it("should copy link to clipboard", async () => {
     const mockLink = {
       cipherId: "cipher-123" as CipherId,
       sendId: "send-1",
+      authType: AuthType.Email,
       emails: ["test@test.com"],
       expiresAt: new Date(),
       oneTimeShare: false,
+      accessCount: 0,
       url: "https://vault.bitwarden.com/share/abc",
     };
 
@@ -179,9 +189,11 @@ describe("ShareItemFormComponent", () => {
     const mockLink = {
       cipherId: "cipher-123" as CipherId,
       sendId: "send-1",
+      authType: AuthType.Email,
       emails: ["test@test.com"],
       expiresAt: new Date(),
       oneTimeShare: false,
+      accessCount: 0,
       url: "https://vault.bitwarden.com/share/abc",
     };
 
@@ -194,6 +206,89 @@ describe("ShareItemFormComponent", () => {
         message: "shareLinkDeleted",
       }),
     );
+  });
+
+  describe("who can view (hashpw)", () => {
+    beforeEach(() => {
+      shareLinkService.createShareLink.mockResolvedValue(
+        "https://send.bitwarden.com/access-id/key",
+      );
+    });
+
+    it("anyone with the link needs no emails and is one-time by default", async () => {
+      component.form.controls.authType.setValue(AuthType.None);
+
+      expect(component.form.valid).toBe(true);
+      expect(component.form.controls.maxAccessCount.value).toBe(1);
+      await component.createAndCopyLink();
+      expect(shareLinkService.createShareLink).toHaveBeenCalledWith(mockCipher, {
+        authType: AuthType.None,
+        emails: [],
+        password: undefined,
+        expiryHours: 168,
+        maxAccessCount: 1,
+      });
+    });
+
+    it("a password link needs the password and hands it to the service", async () => {
+      component.form.controls.emails.setValue("left@over.com");
+      component.form.controls.authType.setValue(AuthType.Password);
+      expect(component.form.invalid).toBe(true);
+
+      component.form.controls.password.setValue("s3nha");
+      await component.createAndCopyLink();
+      expect(shareLinkService.createShareLink).toHaveBeenCalledWith(mockCipher, {
+        authType: AuthType.Password,
+        emails: [],
+        password: "s3nha",
+        expiryHours: 168,
+        maxAccessCount: undefined,
+      });
+    });
+
+    it("keeps the number of opens the user picked when the audience changes", () => {
+      component.form.controls.maxAccessCount.setValue(3);
+      component.form.controls.maxAccessCount.markAsDirty();
+      component.form.controls.authType.setValue(AuthType.None);
+      expect(component.form.controls.maxAccessCount.value).toBe(3);
+    });
+
+    it("goes back to no limit when an untouched open link turns email verified", () => {
+      component.form.controls.authType.setValue(AuthType.None);
+      component.form.controls.authType.setValue(AuthType.Email);
+      expect(component.form.controls.maxAccessCount.value).toBe(0);
+      expect(component.form.controls.emails.enabled).toBe(true);
+      expect(component.form.controls.password.enabled).toBe(false);
+    });
+
+    it("offers only email verification when a policy asks for specific people", () => {
+      component.form.controls.authType.setValue(AuthType.None);
+      whoCanAccess$.next(WhoCanAccessType.SpecificPeople);
+
+      expect(component["authTypeOptions"]().map((o) => o.value)).toEqual([AuthType.Email]);
+      expect(component.form.controls.authType.value).toBe(AuthType.Email);
+    });
+
+    it("shows who can open each active link and how many opens are left", () => {
+      const link = (authType: AuthType, maxAccessCount?: number): ShareLink => ({
+        cipherId: "cipher-123" as CipherId,
+        sendId: "send-1",
+        authType,
+        emails: authType === AuthType.Email ? ["a@test.com", "b@test.com"] : [],
+        expiresAt: new Date(),
+        oneTimeShare: maxAccessCount === 1,
+        accessCount: 0,
+        maxAccessCount,
+        url: "https://vault.bitwarden.com/share/abc",
+      });
+
+      expect(component["linkAudience"](link(AuthType.None))).toBe("noAuth");
+      expect(component["linkAudience"](link(AuthType.Password))).toBe("shareLinkWithPassword");
+      expect(component["linkAudience"](link(AuthType.Email))).toBe("a@test.com, +1");
+      expect(component["linkOpens"](link(AuthType.None))).toBe("");
+      component["linkOpens"](link(AuthType.None, 1));
+      expect(i18nService.t).toHaveBeenCalledWith("shareLinkOpens", "0", "1");
+    });
   });
 
   it("should set the deletion date field to comply with any Send Controls policies", async () => {

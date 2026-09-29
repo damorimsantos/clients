@@ -28,6 +28,8 @@ import { getUserId } from "@bitwarden/common/auth/services/account.service";
 import { I18nService } from "@bitwarden/common/platform/abstractions/i18n.service";
 import { PlatformUtilsService } from "@bitwarden/common/platform/abstractions/platform-utils.service";
 import { SendDeletionDatePreset } from "@bitwarden/common/tools/models/send-deletion-date-preset";
+import { WhoCanAccessType } from "@bitwarden/common/tools/models/send-who-can-access-type";
+import { AuthType } from "@bitwarden/common/tools/send/types/auth-type";
 import { CipherId } from "@bitwarden/common/types/guid";
 import { FolderService } from "@bitwarden/common/vault/abstractions/folder/folder.service.abstraction";
 import { CipherType } from "@bitwarden/common/vault/enums";
@@ -134,6 +136,26 @@ export class ShareItemFormComponent implements OnDestroy {
     { label: this.i18nService.t("days", "30"), value: SendDeletionDatePreset.ThirtyDays },
   ];
 
+  protected readonly AuthType = AuthType;
+
+  /** hashpw: who can open the link. Upstream only has email verification for item links. */
+  private readonly allAuthTypeOptions: Option<AuthType>[] = [
+    { label: this.i18nService.t("specificPeople"), value: AuthType.Email },
+    { label: this.i18nService.t("noAuth"), value: AuthType.None },
+    { label: this.i18nService.t("anyOneWithPassword"), value: AuthType.Password },
+  ];
+  protected readonly authTypeOptions = signal<Option<AuthType>[]>(this.allAuthTypeOptions);
+
+  /** hashpw: how many times the link opens; 0 is no limit until it expires */
+  protected readonly maxAccessOptions: Option<number>[] = [
+    { label: this.i18nService.t("shareOpensOnce"), value: 1 },
+    ...[2, 3, 5, 10].map((n) => ({
+      label: this.i18nService.t("shareOpensTimes", String(n)),
+      value: n,
+    })),
+    { label: this.i18nService.t("shareOpensUnlimited"), value: 0 },
+  ];
+
   private readonly emailListValidator: ValidatorFn = (
     control: AbstractControl,
   ): ValidationErrors | null => {
@@ -185,14 +207,19 @@ export class ShareItemFormComponent implements OnDestroy {
   };
 
   readonly form = new FormGroup({
+    authType: new FormControl<AuthType>(AuthType.Email, { nonNullable: true }),
     emails: new FormControl("", {
       nonNullable: true,
       validators: [Validators.required, this.emailListValidator, this.emailsMaxLengthValidator],
     }),
+    password: new FormControl(
+      { value: "", disabled: true },
+      { nonNullable: true, validators: [Validators.required] },
+    ),
     expiryHours: new FormControl<SendDeletionDatePreset>(SendDeletionDatePreset.SevenDays, {
       nonNullable: true,
     }),
-    oneTimeShare: new FormControl(false, { nonNullable: true }),
+    maxAccessCount: new FormControl<number>(0, { nonNullable: true }),
   });
 
   private readonly activeUserId$ = this.accountService.activeAccount$.pipe(getUserId);
@@ -232,6 +259,24 @@ export class ShareItemFormComponent implements OnDestroy {
         }
         emailsControl?.updateValueAndValidity();
       });
+
+    this.form.controls.authType.valueChanges
+      .pipe(takeUntilDestroyed())
+      .subscribe((authType) => this.applyAuthType(authType));
+
+    // An organization that only allows specific people keeps the upstream form
+    this.sendPolicyService.whoCanAccess$.pipe(takeUntilDestroyed()).subscribe((whoCanAccess) => {
+      const onlyEmail = whoCanAccess === WhoCanAccessType.SpecificPeople;
+      this.authTypeOptions.set(
+        onlyEmail
+          ? this.allAuthTypeOptions.filter((o) => o.value === AuthType.Email)
+          : this.allAuthTypeOptions,
+      );
+      if (onlyEmail && this.form.controls.authType.value !== AuthType.Email) {
+        this.form.controls.authType.setValue(AuthType.Email);
+      }
+    });
+
     const cipher$ = toObservable(this.cipher).pipe(filterOutNullish());
 
     combineLatest([
@@ -275,6 +320,38 @@ export class ShareItemFormComponent implements OnDestroy {
     void this.shareLinkService.setCipher(undefined);
   }
 
+  /** Only the field of the chosen auth type counts for validity */
+  private applyAuthType(authType: AuthType): void {
+    const { emails, password, maxAccessCount } = this.form.controls;
+    if (authType === AuthType.Email) {
+      emails.enable();
+    } else {
+      emails.disable();
+    }
+    if (authType === AuthType.Password) {
+      password.enable();
+    } else {
+      password.disable();
+    }
+    // A link anyone can open is one-time unless the user already picked how many opens
+    if (maxAccessCount.pristine) {
+      maxAccessCount.setValue(authType === AuthType.None ? 1 : 0);
+    }
+  }
+
+  protected copyPassword(): void {
+    const password = this.form.controls.password.value;
+    if (!password) {
+      return;
+    }
+    this.platformUtilsService.copyToClipboard(password);
+    this.toastService.showToast({
+      variant: "success",
+      title: undefined,
+      message: this.i18nService.t("valueCopied", this.i18nService.t("password")),
+    });
+  }
+
   protected async copyLink(link: ShareLink): Promise<void> {
     this.platformUtilsService.copyToClipboard(link.url);
     this.toastService.showToast({
@@ -312,18 +389,23 @@ export class ShareItemFormComponent implements OnDestroy {
     }
 
     const formValue = this.form.getRawValue();
-    const emails = formValue.emails
-      .split(",")
-      .map((e) => e.trim())
-      .filter((e) => e.length > 0);
+    const authType = formValue.authType;
+    const emails =
+      authType === AuthType.Email
+        ? formValue.emails
+            .split(",")
+            .map((e) => e.trim())
+            .filter((e) => e.length > 0)
+        : [];
 
     try {
-      const link = await this.shareLinkService.createShareLink(
-        currentCipher,
+      const link = await this.shareLinkService.createShareLink(currentCipher, {
+        authType,
         emails,
-        formValue.expiryHours,
-        formValue.oneTimeShare,
-      );
+        password: authType === AuthType.Password ? formValue.password : undefined,
+        expiryHours: formValue.expiryHours,
+        maxAccessCount: formValue.maxAccessCount > 0 ? formValue.maxAccessCount : undefined,
+      });
 
       if (link) {
         this.platformUtilsService.copyToClipboard(link);
@@ -355,5 +437,27 @@ export class ShareItemFormComponent implements OnDestroy {
       return emails[0] ?? "";
     }
     return `${emails[0]}, +${emails.length - 1}`;
+  }
+
+  /** Who can open an active link: its emails, or who else the auth type lets in */
+  protected linkAudience(link: ShareLink): string {
+    if (link.authType === AuthType.None) {
+      return this.i18nService.t("noAuth");
+    }
+    if (link.authType === AuthType.Password) {
+      return this.i18nService.t("shareLinkWithPassword");
+    }
+    return this.linkEmailDisplay(link.emails);
+  }
+
+  protected linkOpens(link: ShareLink): string {
+    if (!link.maxAccessCount) {
+      return "";
+    }
+    return this.i18nService.t(
+      "shareLinkOpens",
+      String(link.accessCount),
+      String(link.maxAccessCount),
+    );
   }
 }

@@ -17713,7 +17713,7 @@
     "message": "Items cannot have multiple attachments with the same file name"
   },
   "sendDeletionDateSetByOrg": {
-    "message": "$ORGNAME$ has set this deletion date",
+    "message": "$ORGNAME$ definiu esta data de exclusão",
     "placeholders": {
       "orgname": {
         "content": "$1",
@@ -17756,62 +17756,62 @@
     "message": "Show me how"
   },
   "shareVerb": {
-    "message": "Share"
+    "message": "Compartilhar"
   },
   "peopleWhoCanView": {
-    "message": "People who can view",
+    "message": "Quem pode ver",
     "description": "Heading for the section listing who has access to view a shared vault item"
   },
   "shareEmailVerificationDescription": {
-    "message": "After sharing this link, recipients will need to verify their email with a code to view the item.",
+    "message": "Depois de compartilhar, quem recebe confirma o e-mail com um código para ver o item.",
     "description": "Description explaining that recipients must verify their email before viewing a shared vault item"
   },
   "shareLinkExpiryHint": {
-    "message": "This link expires after this date, but recipients may retain previously shared information. Regenerate the credential to revoke access.",
+    "message": "O link expira nessa data, mas quem já abriu pode ter guardado o que viu. Para cortar o acesso, troque a senha do item.",
     "description": "Hint text explaining share link expiry behavior and how to revoke access"
   },
   "linkExpiresAfter": {
-    "message": "Link expires after",
+    "message": "O link expira em",
     "description": "Label for the expiry duration select field when creating a share link"
   },
   "oneTimeShare": {
-    "message": "One time share",
+    "message": "Uso único",
     "description": "Checkbox label indicating the share link can only be viewed once by the recipient"
   },
   "activeLinks": {
-    "message": "Active links",
+    "message": "Links ativos",
     "description": "Heading for the list of currently active share links for a vault item"
   },
   "linkCopiedToClipboard": {
-    "message": "Link copied to clipboard",
+    "message": "Link copiado",
     "description": "Toast message shown when a share link URL is successfully copied to the clipboard"
   },
   "linkSaveFailed": {
-    "message": "Unable to create share link",
+    "message": "Não foi possível criar o link",
     "description": "Toast message shown after a new share link fails to create"
   },
   "linkSavedAndCopied": {
-    "message": "Link saved and copied to clipboard",
+    "message": "Link criado e copiado",
     "description": "Toast message shown after a new share link is created and its URL is copied to the clipboard"
   },
   "linkSavedCopyFailed": {
-    "message": "Failed to copy share link to clipboard",
+    "message": "Não foi possível copiar o link",
     "description": "Toas message shown after a new share link is created but we were unable to copy it to the clipboard"
   },
   "shareLinkDeleted": {
-    "message": "Share link deleted",
+    "message": "Link apagado",
     "description": "Toast message shown when an active share link is successfully deleted"
   },
   "shareLinkDeleteFailed": {
-    "message": "Failed to delete share link",
+    "message": "Não foi possível apagar o link",
     "description": "Toast message shown when an active share link deletion is unsuccessful"
   },
   "shareViaLink": {
-    "message": "Share via link",
+    "message": "Compartilhar por link",
     "description": "Menu option to share a vault item via a shareable link"
   },
   "itemSendTitle": {
-    "message": "Share for vault item $ITEM$",
+    "message": "Compartilhamento do item $ITEM$",
     "placeholders": {
       "item": {
         "content": "$1",
@@ -17820,7 +17820,7 @@
     }
   },
   "shareLinkExpires": {
-    "message": "Expires",
+    "message": "Expira em",
     "description": "Label preceding the expiration date of an active share link."
   },
   "sendAccessItemSubtitle": {
@@ -17889,5 +17889,54 @@
   },
   "serviceAccountsProratedCharge": {
     "message": "Service accounts prorated charge"
+  },
+  "shareAnyoneWithLinkHint": {
+    "message": "Quem receber o link abre o item, sem código nem senha. Deixe poucas aberturas."
+  },
+  "sharePasswordHint": {
+    "message": "Quem recebe digita esta senha para abrir o item. Mande a senha por outro canal, nunca junto com o link."
+  },
+  "shareMaxOpens": {
+    "message": "Pode ser aberto"
+  },
+  "shareOpensOnce": {
+    "message": "1 vez (uso único)"
+  },
+  "shareOpensTimes": {
+    "message": "$COUNT$ vezes",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "shareOpensUnlimited": {
+    "message": "Sem limite até expirar"
+  },
+  "shareMaxOpensHint": {
+    "message": "Cada abertura conta. Depois da última o link para de funcionar."
+  },
+  "shareLinkWithPassword": {
+    "message": "Quem tiver a senha"
+  },
+  "shareLinkOpens": {
+    "message": "$USED$ de $MAX$ aberturas",
+    "placeholders": {
+      "used": {
+        "content": "$1",
+        "example": "0"
+      },
+      "max": {
+        "content": "$2",
+        "example": "1"
+      }
+    }
+  },
+  "sendOpenIntro": {
+    "message": "Alguém compartilhou isto com você. Abra quando for usar: o link pode ter um limite de aberturas."
+  },
+  "sendOpenButton": {
+    "message": "Abrir"
   }
 }
