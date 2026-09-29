@@ -1,6 +1,6 @@
 // FIXME(https://bitwarden.atlassian.net/browse/CL-1062): `OnPush` components should not use mutable properties
 /* eslint-disable @bitwarden/components/enforce-readonly-angular-properties */
-import { ChangeDetectionStrategy, Component, input, OnInit, output, signal } from "@angular/core";
+import { ChangeDetectionStrategy, Component, input, output, signal } from "@angular/core";
 import { FormBuilder } from "@angular/forms";
 import { firstValueFrom } from "rxjs";
 
@@ -35,7 +35,7 @@ import { SendAccessPasswordComponent } from "./send-access-password.component";
   imports: [SendAccessPasswordComponent, SendAccessEmailComponent, SharedModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class SendAuthComponent implements OnInit {
+export class SendAuthComponent {
   protected readonly id = input.required<string>();
   protected readonly key = input.required<string>();
 
@@ -53,6 +53,12 @@ export class SendAuthComponent implements OnInit {
   readonly unavailable = signal<boolean>(false);
   readonly sendAuthType = signal<AuthType>(AuthType.None);
   readonly enterOtp = signal<boolean>(false);
+  /**
+   * hashpw: the first token request of a link anyone can open already counts an access, so it
+   * waits for a click. A robot that renders the page (mail scanner, link preview) never clicks,
+   * and a one-time link reaches the person it was sent to.
+   */
+  readonly opened = signal<boolean>(false);
 
   sendAccessForm = this.formBuilder.group<{ password?: string; email?: string; otp?: string }>({});
 
@@ -65,7 +71,9 @@ export class SendAuthComponent implements OnInit {
     private anonLayoutWrapperDataService: AnonLayoutWrapperDataService,
   ) {}
 
-  ngOnInit() {
+  // Nothing is requested before the click on "Open" (upstream calls onSubmit() in ngOnInit)
+  onOpen() {
+    this.opened.set(true);
     void this.onSubmit();
   }
 

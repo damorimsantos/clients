@@ -17977,5 +17977,54 @@
   },
   "serviceAccountsProratedCharge": {
     "message": "Service accounts prorated charge"
+  },
+  "shareAnyoneWithLinkHint": {
+    "message": "Anyone who gets this link can open the item, with no code or password. Keep the number of opens low."
+  },
+  "sharePasswordHint": {
+    "message": "Recipients type this password to open the item. Send it through another channel, never with the link."
+  },
+  "shareMaxOpens": {
+    "message": "Can be opened"
+  },
+  "shareOpensOnce": {
+    "message": "Once (one-time link)"
+  },
+  "shareOpensTimes": {
+    "message": "$COUNT$ times",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "shareOpensUnlimited": {
+    "message": "No limit until it expires"
+  },
+  "shareMaxOpensHint": {
+    "message": "Each open counts. After the last one the link stops working."
+  },
+  "shareLinkWithPassword": {
+    "message": "Anyone with the password"
+  },
+  "shareLinkOpens": {
+    "message": "$USED$ of $MAX$ opens",
+    "placeholders": {
+      "used": {
+        "content": "$1",
+        "example": "0"
+      },
+      "max": {
+        "content": "$2",
+        "example": "1"
+      }
+    }
+  },
+  "sendOpenIntro": {
+    "message": "Someone shared this with you. Open it when you are ready to use it: the link may open only a limited number of times."
+  },
+  "sendOpenButton": {
+    "message": "Open"
   }
 }

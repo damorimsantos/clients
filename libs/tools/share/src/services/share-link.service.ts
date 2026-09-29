@@ -43,10 +43,26 @@ import { PolicyType } from "@bitwarden/sdk-internal";
 export interface ShareLink {
   cipherId: CipherId;
   sendId: string;
+  authType: AuthType;
   emails: string[];
   expiresAt: Date;
   oneTimeShare: boolean;
+  accessCount: number;
+  maxAccessCount?: number;
   url: string;
+}
+
+/**
+ * hashpw: who can open a new share link and how many times. Upstream only creates email verified
+ * item links; the server accepts the other auth types when ITEM_SHARING_OPEN_LINKS is on.
+ */
+export interface ShareLinkOptions {
+  authType: AuthType;
+  emails: string[];
+  /** Plaintext; the SDK hashes it with the Send key before it leaves the client */
+  password?: string;
+  expiryHours: number;
+  maxAccessCount?: number;
 }
 
 /**
@@ -84,26 +100,24 @@ export class ShareLinkService {
    * Creates a new share link
    *
    * @param cipherView - The cipher to share
-   * @param emails - Comma-delimited email addresses
-   * @param expiryHours - Number of hours until expiry
-   * @param oneTimeShare - Whether the link can only be viewed once
+   * @param options - Who can open the link, until when and how many times
    * @returns The created share link
    */
   async createShareLink(
     cipherView: CipherView,
-    emails: string[],
-    expiryHours: number,
-    oneTimeShare: boolean,
+    options: ShareLinkOptions,
   ): Promise<string | undefined> {
     const sendView = new SendView();
     sendView.name = this.i18nService.t("itemSendTitle", cipherView.name);
     sendView.type = SendType.Item;
-    sendView.authType = AuthType.Email;
-    sendView.emails = emails;
-    sendView.deletionDate = new Date(Date.now() + expiryHours * 60 * 60 * 1000);
+    sendView.authType = options.authType;
+    if (options.authType === AuthType.Email) {
+      sendView.emails = options.emails;
+    }
+    sendView.deletionDate = new Date(Date.now() + options.expiryHours * 60 * 60 * 1000);
     sendView.expirationDate = sendView.deletionDate;
-    if (oneTimeShare) {
-      sendView.maxAccessCount = 1;
+    if (options.maxAccessCount) {
+      sendView.maxAccessCount = options.maxAccessCount;
     }
     const sharedCipherView = this.toShareView(cipherView);
     if (!sharedCipherView) {
@@ -118,7 +132,7 @@ export class ShareLinkService {
     const createdSdkSendView = await this.sendSdkApiService.mutateSend(
       sendView,
       userId,
-      null as any,
+      options.authType === AuthType.Password ? options.password : undefined,
     );
     await this.sendSdkApiService.refreshAfterMutation(createdSdkSendView.id as any);
     const env = await firstValueFrom(this.environmentService.environment$);
@@ -168,9 +182,12 @@ export class ShareLinkService {
         newLinks.push({
           sendId: send.id,
           cipherId: send.data?.data?.id as any,
-          emails: send.emails,
+          authType: send.authType,
+          emails: send.emails ?? [],
           expiresAt: send.deletionDate,
           oneTimeShare: send.maxAccessCount === 1,
+          accessCount: send.accessCount ?? 0,
+          maxAccessCount: send.maxAccessCount ?? undefined,
           url: sendLink,
         });
       }
